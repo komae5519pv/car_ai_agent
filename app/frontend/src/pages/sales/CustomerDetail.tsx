@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { FiArrowLeft, FiChevronDown, FiChevronUp, FiRefreshCw, FiCopy, FiCheck } from 'react-icons/fi'
-import { LuCar, LuMic, LuUsers, LuMapPin, LuShield, LuSparkles, LuMessageCircle, LuPhone } from 'react-icons/lu'
+import { LuCar, LuMic, LuUsers, LuShield, LuSparkles, LuMessageCircle, LuPhone } from 'react-icons/lu'
 import { HiOutlineSparkles } from 'react-icons/hi2'
 import { Button } from '../../components/common/Button'
 import { LoadingSpinner } from '../../components/common/LoadingSpinner'
@@ -247,7 +247,7 @@ export function CustomerDetail() {
               )}
             </div>
 
-            {/* 基本条件 - 横並びカード */}
+            {/* 基本条件 - 横並びカード（sv_customersテーブルから取得） */}
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
               <div className="px-6 py-4 border-b border-gray-100 flex items-center gap-3">
                 <div className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center">
@@ -258,9 +258,9 @@ export function CustomerDetail() {
               <div className="p-6">
                 <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
                   <div className="bg-gray-50 rounded-xl p-4 text-center border border-gray-100">
-                    <p className="text-xs text-gray-500 mb-1">希望タイプ</p>
+                    <p className="text-xs text-gray-500 mb-1">ペルソナ</p>
                     <p className="font-bold text-gray-900 text-sm">
-                      {insight?.priorities[0] || 'ミニバン'}
+                      {(customer as any).persona_type || '—'}
                     </p>
                   </div>
                   <div className="bg-gray-50 rounded-xl p-4 text-center border border-gray-100">
@@ -273,21 +273,21 @@ export function CustomerDetail() {
                     <p className="text-xs text-gray-500 mb-1">家族人数</p>
                     <p className="font-bold text-gray-900 text-sm flex items-center justify-center gap-1">
                       <LuUsers className="w-4 h-4 text-gray-400" />
-                      {customer.family_structure.includes('独身') ? '独身' : `${customer.family_structure.split('、').length + 1}人`}
+                      {(customer as any).family_size ? `${(customer as any).family_size}人` : '—'}
                     </p>
                   </div>
                   <div className="bg-gray-50 rounded-xl p-4 text-center border border-gray-100">
-                    <p className="text-xs text-gray-500 mb-1">主な用途</p>
+                    <p className="text-xs text-gray-500 mb-1">現在の車</p>
                     <p className="font-bold text-gray-900 text-sm flex items-center justify-center gap-1">
-                      <LuMapPin className="w-4 h-4 text-gray-400" />
-                      {insight?.needs[0]?.slice(0, 10) || '家族での外出'}
+                      <LuCar className="w-4 h-4 text-gray-400" />
+                      {(customer as any).current_vehicle?.split('（')[0] || '—'}
                     </p>
                   </div>
                   <div className="bg-gray-50 rounded-xl p-4 text-center border border-gray-100">
-                    <p className="text-xs text-gray-500 mb-1">必須機能</p>
+                    <p className="text-xs text-gray-500 mb-1">重視ポイント</p>
                     <p className="font-bold text-gray-900 text-sm flex items-center justify-center gap-1">
                       <LuShield className="w-4 h-4 text-gray-400" />
-                      {insight?.priorities[0] || '安全装備'}
+                      {(customer as any).preferences?.split('、')[0] || '—'}
                     </p>
                   </div>
                 </div>
