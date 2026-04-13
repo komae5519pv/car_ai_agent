@@ -55,6 +55,7 @@ write_bronze(
         "customer_id": "会員ID（顧客一意識別子）",
         "sales_rep_id": "営業担当者ID",
         "sales_rep_name": "営業担当者氏名",
+        "sales_rep_email": "営業担当者メールアドレス",
         "contact_name": "顧客氏名",
         "age": "顧客年齢",
         "gender": "性別（男性/女性）",

@@ -72,16 +72,16 @@ random.seed(42)
 
 # ---------- 営業担当者 10名 ----------
 SALES_REPS = [
-    ("REP-001", SALES_REP_NAME),
-    ("REP-002", "山田 花子"),
-    ("REP-003", "鈴木 一郎"),
-    ("REP-004", "高橋 健太"),
-    ("REP-005", "田村 直樹"),
-    ("REP-006", "山本 美咲"),
-    ("REP-007", "佐藤 洋介"),
-    ("REP-008", "中村 愛"),
-    ("REP-009", "小林 大輔"),
-    ("REP-010", "渡辺 真理"),
+    ("REP-001", SALES_REP_NAME, "konomi.omae@databricks.com"),
+    ("REP-002", "山田 花子", "hanako.yamada@example.com"),
+    ("REP-003", "鈴木 一郎", "ichiro.suzuki@example.com"),
+    ("REP-004", "高橋 健太", "kenta.takahashi@example.com"),
+    ("REP-005", "田村 直樹", "naoki.tamura@example.com"),
+    ("REP-006", "山本 美咲", "misaki.yamamoto@example.com"),
+    ("REP-007", "佐藤 洋介", "yosuke.sato@example.com"),
+    ("REP-008", "中村 愛", "ai.nakamura@example.com"),
+    ("REP-009", "小林 大輔", "daisuke.kobayashi@example.com"),
+    ("REP-010", "渡辺 真理", "mari.watanabe@example.com"),
 ]
 
 # ---------- ペルソナ ----------
@@ -252,6 +252,7 @@ for i, cust in enumerate(DETAILED_CUSTOMERS):
         "customer_id": f"CUST-{i+1:04d}",
         "sales_rep_id": "REP-001",
         "sales_rep_name": SALES_REP_NAME,
+        "sales_rep_email": "konomi.omae@databricks.com",
         "contact_name": cust["contact_name"],
         "age": cust["age"],
         "gender": cust["gender"],
@@ -302,6 +303,7 @@ for i in range(10, 1200):
         "customer_id": f"CUST-{i+1:04d}",
         "sales_rep_id": rep[0],
         "sales_rep_name": rep[1],
+        "sales_rep_email": rep[2],
         "contact_name": name,
         "age": age,
         "gender": gender,
