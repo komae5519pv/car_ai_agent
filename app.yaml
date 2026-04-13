@@ -1,0 +1,34 @@
+# Databricks Apps Configuration for Car AI Demo
+command: ["uvicorn", "car_ai_demo.backend.app:app", "--workers", "2"]
+
+env:
+  - name: 'DATABRICKS_WAREHOUSE_ID'
+    value: '348478745ad64b30'
+
+  - name: 'PYTHONPATH'
+    value: 'src'
+
+  - name: 'SALES_MYPAGE_GENIE_SPACE_ID'
+    value: '01f130f1da9a150caecac7a19f5b4317'
+
+  # Unity Catalog Configuration
+  - name: 'CATALOG'
+    value: 'konomi_demo_catalog'
+  - name: 'SCHEMA_NAME'
+    value: 'car_ai_demo'
+
+  # LLM Configuration
+  - name: 'LLM_MODEL'
+    value: 'databricks-claude-sonnet-4'
+
+  # Agent Endpoint (Multi-Agent Supervisor)
+  - name: 'AGENT_ENDPOINT_NAME'
+    value: 'mas-e9f1d14c-endpoint'
+
+  # Email → 担当者名マッピング（JSON形式）
+  - name: 'EMAIL_REP_MAPPING'
+    value: '{"konomi.omae@databricks.com":"大前 このみ"}'
+
+  # Application Configuration
+  - name: 'DEBUG'
+    value: 'false'

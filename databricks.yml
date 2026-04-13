@@ -1,0 +1,11 @@
+bundle:
+  name: car-ai-demo
+
+sync:
+  include:
+    - .build
+
+targets:
+  dev:
+    mode: development
+    default: true
