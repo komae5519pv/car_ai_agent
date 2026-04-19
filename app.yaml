@@ -9,7 +9,7 @@ env:
     value: 'src'
 
   - name: 'SALES_MYPAGE_GENIE_SPACE_ID'
-    value: '01f130f1da9a150caecac7a19f5b4317'
+    value: '01f13bd256c11b0cb17f818f4bd28b71'
 
   # Unity Catalog Configuration
   - name: 'CATALOG'

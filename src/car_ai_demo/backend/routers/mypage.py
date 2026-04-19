@@ -198,12 +198,10 @@ async def get_mypage_stats(sales_rep_name: str = Query(...)):
         {rep_filter}
         GROUP BY 1 ORDER BY 1 DESC LIMIT 2
     """
-    customers_table = get_full_table_name("sv_customers")
-    customers_rep_and = "" if is_all else f"AND sales_rep_name = '{sales_rep_name}'"
     loss_q = f"""
         SELECT loss_reason, COUNT(*) AS cnt
-        FROM {customers_table}
-        WHERE stage = '失注' {customers_rep_and}
+        FROM {full_table}
+        WHERE outcome = '失注' {rep_and}
           AND loss_reason IS NOT NULL AND loss_reason != ''
         GROUP BY 1 ORDER BY 2 DESC
     """
@@ -322,6 +320,7 @@ async def get_mypage_stats(sales_rep_name: str = Query(...)):
 async def get_loss_actions(sales_rep_name: str = Query(...)):
     """失注理由ごとのAI改善アクションを非同期で返す。"""
     full_table = get_full_table_name("sv_sales_results")
+    is_all = sales_rep_name == "ALL"
     date_filter = "WHERE sale_date < CURRENT_DATE()"
     date_and = "AND sale_date < CURRENT_DATE()"
     if is_all:
@@ -331,12 +330,10 @@ async def get_loss_actions(sales_rep_name: str = Query(...)):
         rep_filter = f"{date_filter} AND sales_rep_name = '{sales_rep_name}'"
         rep_and = f"{date_and} AND sales_rep_name = '{sales_rep_name}'"
 
-    customers_table = get_full_table_name("sv_customers")
-    customers_rep_and = "" if is_all else f"AND sales_rep_name = '{sales_rep_name}'"
     loss_q = f"""
         SELECT loss_reason, COUNT(*) AS cnt
-        FROM {customers_table}
-        WHERE stage = '失注' {customers_rep_and}
+        FROM {full_table}
+        WHERE outcome = '失注' {rep_and}
           AND loss_reason IS NOT NULL AND loss_reason != ''
         GROUP BY 1 ORDER BY 2 DESC
     """

@@ -26,7 +26,7 @@ class Settings(BaseSettings):
     agent_endpoint_name: str = ""
 
     # Genie Space IDs
-    sales_mypage_genie_space_id: str = "01f130f1da9a150caecac7a19f5b4317"
+    sales_mypage_genie_space_id: str = "01f13bd256c11b0cb17f818f4bd28b71"
 
     # Foundation Model API Settings (推薦・インサイト生成用)
     llm_model: str = "databricks-claude-sonnet-4"
