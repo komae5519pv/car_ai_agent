@@ -176,8 +176,14 @@ async def get_mypage_stats(sales_rep_name: str = Query(...)):
     """担当者の今月実績・失注理由・車両カテゴリ別成約率を返す。"""
     full_table = get_full_table_name("sv_sales_results")
     is_all = sales_rep_name == "ALL"
-    rep_filter = "" if is_all else f"WHERE sales_rep_name = '{sales_rep_name}'"
-    rep_and = "" if is_all else f"AND sales_rep_name = '{sales_rep_name}'"
+    date_filter = "WHERE sale_date < CURRENT_DATE()"
+    date_and = "AND sale_date < CURRENT_DATE()"
+    if is_all:
+        rep_filter = date_filter
+        rep_and = date_and
+    else:
+        rep_filter = f"{date_filter} AND sales_rep_name = '{sales_rep_name}'"
+        rep_and = f"{date_and} AND sales_rep_name = '{sales_rep_name}'"
 
     monthly_q = f"""
         SELECT
@@ -316,9 +322,14 @@ async def get_mypage_stats(sales_rep_name: str = Query(...)):
 async def get_loss_actions(sales_rep_name: str = Query(...)):
     """失注理由ごとのAI改善アクションを非同期で返す。"""
     full_table = get_full_table_name("sv_sales_results")
-    is_all = sales_rep_name == "ALL"
-    rep_filter = "" if is_all else f"WHERE sales_rep_name = '{sales_rep_name}'"
-    rep_and = "" if is_all else f"AND sales_rep_name = '{sales_rep_name}'"
+    date_filter = "WHERE sale_date < CURRENT_DATE()"
+    date_and = "AND sale_date < CURRENT_DATE()"
+    if is_all:
+        rep_filter = date_filter
+        rep_and = date_and
+    else:
+        rep_filter = f"{date_filter} AND sales_rep_name = '{sales_rep_name}'"
+        rep_and = f"{date_and} AND sales_rep_name = '{sales_rep_name}'"
 
     customers_table = get_full_table_name("sv_customers")
     customers_rep_and = "" if is_all else f"AND sales_rep_name = '{sales_rep_name}'"

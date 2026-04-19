@@ -368,6 +368,8 @@ sales_rows = []
 for yr in [2020, 2021, 2022, 2023, 2024, 2025, 2026]:
     for month in range(1, 13 if yr < 2026 else 5):   # 2026は1〜4月まで
         days_in_month = 28 if month == 2 else (30 if month in [4,6,9,11] else 31)
+        # 2026年4月は19日までのデータに限定（デモ当日4/20に前日実績まで表示）
+        max_day = 19 if (yr == 2026 and month == 4) else days_in_month
         for rep_id, rep_name, rep_region, rep_email in REPS:
             stores = REGIONS[rep_region]
             for cat, vehicles in VEHICLE_CATS.items():
@@ -376,7 +378,7 @@ for yr in [2020, 2021, 2022, 2023, 2024, 2025, 2026]:
                     outcome = random.choices(["成約", "失注"], weights=[0.55, 0.45])[0]
                     vkey, vname, base_price = random.choice(vehicles)
                     store = random.choice(stores)
-                    sale_date = date(yr, month, random.randint(1, days_in_month))
+                    sale_date = date(yr, month, random.randint(1, max_day))
                     price = int(base_price * random.uniform(0.85, 1.15)) if outcome == "成約" else 0
                     sales_rows.append({
                         "sale_id":          f"SALE-{yr}{month:02d}-{len(sales_rows)+1:06d}",
@@ -425,3 +427,19 @@ write_silver(sr_df, "sv_sales_results", "営業実績トランザクション（
 for t in ["sv_customers", "sv_vehicle_inventory", "sv_interactions", "sv_carsensor_behavior", "sv_stores", "sv_sales_results"]:
     print(f"  {t:<30s} {spark.table(t).count():>10,} 件")
 print("✓ Silver 加工完了")
+
+# COMMAND ----------
+
+# MAGIC %md-sandbox
+# MAGIC ## 🔑 アプリ用サービスプリンシパルへの権限付与
+# MAGIC <div style="border-left: 4px solid #F57C00; background: #FFF3E0; padding: 14px 18px; border-radius: 6px; margin-bottom: 10px;">
+# MAGIC   <strong>⚠️ 注意</strong> — テーブルを overwrite で再作成するとスキーマレベルの GRANT が消失するため、毎回再付与が必要です。
+# MAGIC </div>
+
+# COMMAND ----------
+
+APP_SERVICE_PRINCIPAL = "66fd7c16-fe48-408e-8272-9d2b19513393"
+for grant in ["USE SCHEMA", "SELECT", "READ VOLUME"]:
+    spark.sql(f"GRANT {grant} ON SCHEMA {schema_name} TO `{APP_SERVICE_PRINCIPAL}`")
+    print(f"  ✓ GRANT {grant} ON SCHEMA {schema_name}")
+print("✓ サービスプリンシパル権限付与完了")
