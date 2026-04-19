@@ -126,7 +126,7 @@
 # MAGIC <hr style="border: 2px solid #1976d2; margin: 30px 0;">
 # MAGIC <div style="border-left: 4px solid #1976d2; background-color: #e3f2fd; padding: 15px 20px; border-radius: 0 8px 8px 0; margin: 10px 0;">
 # MAGIC   <h2 style="color: #1976d2; margin-top: 0;">Genie 2: 営業マイページ アシスタント</h2>
-# MAGIC   <p>営業担当者が自身の成績・実績を自然言語で確認するための Genie スペースです。</p>
+# MAGIC   <p>中古車販売企業｜営業担当者の個人実績データを自然言語で分析できます。成約率・売上・車種別・月別トレンドなどの質問に答えます。</p>
 # MAGIC </div>
 
 # COMMAND ----------

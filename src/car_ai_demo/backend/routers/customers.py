@@ -122,21 +122,15 @@ async def get_customer_interaction(customer_id: str) -> APIResponse:
         if not results:
             raise HTTPException(status_code=404, detail="Interaction not found")
 
-        # channel_insight を key_quotes として取得（顧客単位で1回だけ）
+        # key_quotes_json から印象的な発言を取得（顧客単位で1回だけ）
         key_quotes: list = []
         insights_table = get_full_table_name("gd_customer_insights")
         try:
             ins_rows = await db.execute_query(
-                f"SELECT channel_insight_visit, channel_insight_line, channel_insight_cc, channel_insight_carsensor FROM {insights_table} WHERE customer_id = '{customer_id}' LIMIT 1"
+                f"SELECT key_quotes_json FROM {insights_table} WHERE customer_id = '{customer_id}' LIMIT 1"
             )
-            if ins_rows:
-                r = ins_rows[0]
-                key_quotes = [v for v in [
-                    r.get("channel_insight_visit"),
-                    r.get("channel_insight_line"),
-                    r.get("channel_insight_cc"),
-                    r.get("channel_insight_carsensor"),
-                ] if v]
+            if ins_rows and ins_rows[0].get("key_quotes_json"):
+                key_quotes = json.loads(ins_rows[0]["key_quotes_json"])
         except Exception:
             pass
 

@@ -166,28 +166,46 @@ write_silver(spark.createDataFrame(vehicle_data, schema=schema_v),
 
 # COMMAND ----------
 
-df_visit = spark.table("bz_visit_transcripts").select(
-    F.col("transcript_id").alias("interaction_id"), F.col("sf_opportunity_id"),
-    F.col("sf_opportunity_id").alias("customer_id"),
-    F.lit("visit").alias("channel"), F.col("visit_date").cast("date").alias("interaction_date"),
-    F.col("store_name"), F.col("sales_rep_name"),
-    F.col("transcript_text").alias("content"), F.col("duration_minutes").cast("int"),
+# customer_id マッピング用（sf_opportunity_id → customer_id）
+df_opp_to_cust = spark.table("bz_sf_opportunities").select(
+    F.col("sf_opportunity_id"),
+    F.col("customer_id"),
 )
-df_line = spark.table("bz_line_messages").select(
-    F.col("message_id").alias("interaction_id"), F.col("sf_opportunity_id"),
-    F.col("sf_opportunity_id").alias("customer_id"),
-    F.lit("line").alias("channel"), F.col("sent_at").cast("date").alias("interaction_date"),
-    F.lit(None).cast("string").alias("store_name"), F.lit(None).cast("string").alias("sales_rep_name"),
-    F.concat(F.col("sender"), F.lit(": "), F.col("message_text")).alias("content"),
-    F.lit(None).cast("int").alias("duration_minutes"),
+
+df_visit = (
+    spark.table("bz_visit_transcripts")
+    .join(df_opp_to_cust, "sf_opportunity_id", "left")
+    .select(
+        F.col("transcript_id").alias("interaction_id"), F.col("sf_opportunity_id"),
+        F.col("customer_id"),
+        F.lit("来店").alias("interaction_type"), F.col("visit_date").cast("date").alias("interaction_date"),
+        F.col("store_name"), F.col("sales_rep_name"),
+        F.col("transcript_text").alias("content"), F.col("duration_minutes").cast("int"),
+    )
 )
-df_call = spark.table("bz_callcenter_logs").select(
-    F.col("call_id").alias("interaction_id"), F.col("sf_opportunity_id"),
-    F.col("sf_opportunity_id").alias("customer_id"),
-    F.lit("callcenter").alias("channel"), F.col("call_date").cast("date").alias("interaction_date"),
-    F.lit(None).cast("string").alias("store_name"), F.lit(None).cast("string").alias("sales_rep_name"),
-    F.col("transcript_text").alias("content"),
-    F.round(F.col("duration_seconds") / 60, 1).cast("int").alias("duration_minutes"),
+df_line = (
+    spark.table("bz_line_messages")
+    .join(df_opp_to_cust, "sf_opportunity_id", "left")
+    .select(
+        F.col("message_id").alias("interaction_id"), F.col("sf_opportunity_id"),
+        F.col("customer_id"),
+        F.lit("LINE").alias("interaction_type"), F.col("sent_at").cast("date").alias("interaction_date"),
+        F.lit(None).cast("string").alias("store_name"), F.lit(None).cast("string").alias("sales_rep_name"),
+        F.concat(F.col("sender"), F.lit(": "), F.col("message_text")).alias("content"),
+        F.lit(None).cast("int").alias("duration_minutes"),
+    )
+)
+df_call = (
+    spark.table("bz_callcenter_logs")
+    .join(df_opp_to_cust, "sf_opportunity_id", "left")
+    .select(
+        F.col("call_id").alias("interaction_id"), F.col("sf_opportunity_id"),
+        F.col("customer_id"),
+        F.lit("コールセンター").alias("interaction_type"), F.col("call_date").cast("date").alias("interaction_date"),
+        F.lit(None).cast("string").alias("store_name"), F.lit(None).cast("string").alias("sales_rep_name"),
+        F.col("transcript_text").alias("content"),
+        F.round(F.col("duration_seconds") / 60, 1).cast("int").alias("duration_minutes"),
+    )
 )
 
 write_silver(df_visit.unionByName(df_line).unionByName(df_call),
@@ -198,7 +216,7 @@ write_silver(df_visit.unionByName(df_line).unionByName(df_call),
         "interaction_id": "インタラクションID（主キー）",
         "sf_opportunity_id": "SFDC商談ID（FK→sv_customers）",
         "customer_id": "顧客ID（sf_opportunity_idと同値。sv_customersとの結合キー）",
-        "channel": "チャネル種別（visit/line/callcenter）",
+        "interaction_type": "チャネル種別（来店/LINE/コールセンター）",
         "interaction_date": "インタラクション発生日",
         "store_name": "店舗名（来店時のみ）",
         "sales_rep_name": "担当営業（来店時のみ）",

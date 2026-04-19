@@ -106,7 +106,7 @@ async def get_recommendations(customer_id: str) -> APIResponse:
         veh_table = get_full_table_name("sv_vehicle_inventory")
 
         rows = await db.execute_query(
-            f"""SELECT r.customer_id, r.rank, r.vehicle_key, r.maker, r.vehicle_name,
+            f"""SELECT r.customer_id, r.rank, r.vehicle_key, r.vehicle_name,
                        r.match_score, r.recommendation_reason, r.talk_script,
                        r.key_selling_points, r.image_path,
                        v.price, v.body_type, v.model_year,
@@ -132,13 +132,12 @@ async def get_recommendations(customer_id: str) -> APIResponse:
                 price_str = f"¥{int(price):,}" if price else ""
             except (ValueError, TypeError):
                 price_str = ""
-            maker = row.get("maker", "")
             vehicle_name = row.get("vehicle_name", "")
             vehicle = {
                 "vehicle_id": row.get("vehicle_key", ""),
                 "vehicle_key": row.get("vehicle_key", ""),
-                "make": maker,
-                "maker": maker,
+                "make": "",
+                "maker": "",
                 "model": vehicle_name,
                 "vehicle_name": vehicle_name,
                 "price": price,
@@ -161,7 +160,7 @@ async def get_recommendations(customer_id: str) -> APIResponse:
             pitch = row.get("talk_script", "")
             if pitch:
                 label = "── 一番のおすすめです" if i == 1 else ""
-                heading = f"### 第{i}位：{maker} {vehicle_name}（{price_str}）{label}"
+                heading = f"### 第{i}位：{vehicle_name}（{price_str}）{label}"
                 talk_script_parts.append(f"{heading}\n{pitch}")
 
         talk_script = "\n\n".join(talk_script_parts)
@@ -207,10 +206,9 @@ async def _generate_talk_script(
             price_str = f"{int(price):,}円"
         except (ValueError, TypeError):
             price_str = str(price)
-        maker = v.get('maker', v.get('make', ''))
         model = v.get('vehicle_name', v.get('model', ''))
         vehicles_ranked.append(
-            f"第{i}位: {maker} {model}（{price_str}）\n"
+            f"第{i}位: {model}（{price_str}）\n"
             f"  推薦理由: {rec.get('reason','')}"
         )
     vehicles_info = "\n".join(vehicles_ranked)
@@ -426,7 +424,6 @@ async def save_recommendations(customer_id: str, body: dict) -> APIResponse:
         for rank, rec in enumerate(recs, 1):
             v = rec.get("vehicle", {})
             vehicle_key = (v.get("vehicle_key") or v.get("vehicle_id") or "").replace("'", "''")
-            maker = v.get("maker", v.get("make", "")).replace("'", "''")
             vehicle_name = v.get("vehicle_name", v.get("model", "")).replace("'", "''")
             match_score = rec.get("match_score", 0)
             reason = rec.get("reason", "").replace("'", "''")
@@ -437,9 +434,9 @@ async def save_recommendations(customer_id: str, body: dict) -> APIResponse:
 
             await db.execute_query(
                 f"""INSERT INTO {rec_table}
-                (customer_id, contact_name, sales_rep_name, rank, vehicle_key, maker, vehicle_name, match_score,
+                (customer_id, contact_name, sales_rep_name, rank, vehicle_key, vehicle_name, match_score,
                  recommendation_reason, talk_script, key_selling_points, image_path, generated_at)
-                VALUES ('{customer_id}', '{contact_name}', '{sales_rep_name}', {rank}, '{vehicle_key}', '{maker}', '{vehicle_name}',
+                VALUES ('{customer_id}', '{contact_name}', '{sales_rep_name}', {rank}, '{vehicle_key}', '{vehicle_name}',
                         {match_score}, '{reason}', '{ts}', '{key_selling_points}', '{image_path}', current_timestamp())"""
             )
 
