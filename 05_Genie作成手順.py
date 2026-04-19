@@ -179,10 +179,10 @@
 # MAGIC <div style="border-left: 4px solid #1976d2; background-color: #e3f2fd; padding: 15px 20px; border-radius: 0 8px 8px 0; margin: 10px 0;">
 # MAGIC   <h4 style="color: #1976d2; margin-top: 0;">💬 サンプル質問</h4>
 # MAGIC   <ul>
-# MAGIC     <li>今月の私の売上実績を教えてください</li>
-# MAGIC     <li>目標達成率は何パーセントですか？</li>
-# MAGIC     <li>先月と比べて成約率はどう変わりましたか？</li>
-# MAGIC     <li>今四半期のトップ営業は誰ですか？</li>
+# MAGIC     <li>SUVとミニバンで成約単価が高いのはどっち？車種別に比較して</li>
+# MAGIC     <li>今月の営業トップ3と、それぞれの得意車種を教えて</li>
+# MAGIC     <li>「他社購入」で失注した案件の車種と価格帯の傾向は？</li>
+# MAGIC     <li>関東 vs 関西、店舗あたりの成約率が高いのはどちら？</li>
 # MAGIC   </ul>
 # MAGIC </div>
 

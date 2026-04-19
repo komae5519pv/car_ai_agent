@@ -278,6 +278,47 @@ class MypageChatRequest(BaseModel):
     message: str
 
 
+def _build_summary_prompt(
+    user_question: str,
+    text_items: list[dict],
+    table_items: list[dict],
+) -> str:
+    """Genie の結果テーブルを Claude に分析させるプロンプトを構築する。"""
+    table_md_parts = []
+    for t in table_items:
+        cols = t["columns"]
+        rows = t["rows"][:30]
+        header = "| " + " | ".join(cols) + " |"
+        sep = "| " + " | ".join("---" for _ in cols) + " |"
+        body = "\n".join("| " + " | ".join(str(c) for c in row) + " |" for row in rows)
+        if len(t["rows"]) > 30:
+            body += f"\n（...他 {len(t['rows']) - 30} 件）"
+        table_md_parts.append(f"{header}\n{sep}\n{body}")
+
+    genie_text = "\n".join(i["content"] for i in text_items) if text_items else ""
+    tables_md = "\n\n".join(table_md_parts)
+
+    genie_section = f"\n## Genieの説明\n{genie_text}\n" if genie_text else ""
+
+    return f"""あなたは中古車販売の営業データアナリストです。
+ユーザーの質問に対して、以下のクエリ結果データを分析し、わかりやすく回答してください。
+
+## ユーザーの質問
+{user_question}
+{genie_section}
+## クエリ結果データ
+{tables_md}
+
+## 回答ルール
+- 質問に直接答える形で回答する
+- 重要な数字は**太字**で強調する
+- 比較・ランキングがあれば明確に示す
+- 金額は万円単位で表示
+- 3〜5文で簡潔にまとめる（長すぎない）
+- 最後に1文でインサイトや示唆を添える
+- マークダウン形式で出力（見出しは ## ではなく ### を使う）"""
+
+
 async def _genie_start_or_continue(
     host: str, token: str, space_id: str, session_id: str, message: str
 ) -> tuple[str, str]:
@@ -410,29 +451,74 @@ async def mypage_chat_stream(request: MypageChatRequest):
                 yield "data: [DONE]\n\n"
                 return
 
-            if request.sales_rep_email and request.sales_rep_email != "ALL":
-                contextualized_message = (
-                    f"sales_rep_emailが「{request.sales_rep_email}」のデータに絞って回答してください。\n"
-                    f"{request.message}"
-                )
-            else:
-                contextualized_message = request.message
-
             conv_id, msg_id = await _genie_start_or_continue(
-                host, token, space_id, request.session_id, contextualized_message
+                host, token, space_id, request.session_id, request.message
             )
 
             items = await _genie_poll(host, token, space_id, conv_id, msg_id)
 
-            for item in items:
-                if item["type"] == "text":
-                    content = item["content"]
-                    chunk_size = 30
-                    for i in range(0, len(content), chunk_size):
-                        yield f"data: {json.dumps({'type': 'content', 'content': content[i:i+chunk_size]})}\n\n"
-                        await asyncio.sleep(0.02)
-                elif item["type"] == "table":
+            text_items = [i for i in items if i["type"] == "text"]
+            table_items = [i for i in items if i["type"] == "table"]
+
+            if table_items:
+                yield f"data: {json.dumps({'type': 'progress', 'message': 'AIが結果を分析しています...'})}\n\n"
+                summary_prompt = _build_summary_prompt(
+                    request.message, text_items, table_items
+                )
+                try:
+                    stream = await llm.chat(
+                        messages=[{"role": "user", "content": summary_prompt}],
+                        max_tokens=800,
+                        temperature=0.3,
+                        stream=True,
+                    )
+                    async for chunk in stream:
+                        yield f"data: {json.dumps({'type': 'content', 'content': chunk})}\n\n"
+                except Exception as e:
+                    print(f"[mypage/chat] LLM summary failed: {e}")
+                    for item in text_items:
+                        content = item["content"]
+                        chunk_size = 30
+                        for i in range(0, len(content), chunk_size):
+                            yield f"data: {json.dumps({'type': 'content', 'content': content[i:i+chunk_size]})}\n\n"
+                            await asyncio.sleep(0.02)
+
+                for item in table_items:
                     yield f"data: {json.dumps({'type': 'table', 'columns': item['columns'], 'rows': item['rows']})}\n\n"
+            else:
+                genie_text = "\n".join(i["content"] for i in text_items) if text_items else ""
+                if genie_text:
+                    refine_prompt = f"""あなたは中古車販売の営業データアナリストです。
+以下はデータ分析システム(Genie)からの回答ですが、質が低い可能性があります。
+ユーザーの質問に対して、Genieの回答を踏まえつつ、より簡潔で的確な回答に書き直してください。
+
+## ユーザーの質問
+{request.message}
+
+## Genieの回答
+{genie_text}
+
+## ルール
+- Genieが「見つかりませんでした」と言っている場合、「現在のデータセットでは該当データが確認できませんでした」と簡潔に伝え、考えられる理由を1文で補足する
+- Genieが質問を返している場合は無視し、質問に直接回答する形にする
+- 冗長な繰り返しは排除する
+- 3文以内で簡潔に"""
+                    try:
+                        stream = await llm.chat(
+                            messages=[{"role": "user", "content": refine_prompt}],
+                            max_tokens=400,
+                            temperature=0.3,
+                            stream=True,
+                        )
+                        async for chunk in stream:
+                            yield f"data: {json.dumps({'type': 'content', 'content': chunk})}\n\n"
+                    except Exception:
+                        chunk_size = 30
+                        for i in range(0, len(genie_text), chunk_size):
+                            yield f"data: {json.dumps({'type': 'content', 'content': genie_text[i:i+chunk_size]})}\n\n"
+                            await asyncio.sleep(0.02)
+                else:
+                    yield f"data: {json.dumps({'type': 'content', 'content': '該当するデータが見つかりませんでした。別の質問をお試しください。'})}\n\n"
 
             yield "data: [DONE]\n\n"
         except Exception as e:
