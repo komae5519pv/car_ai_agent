@@ -16,110 +16,43 @@ from car_ai_demo.backend.llm import llm
 
 router = APIRouter(prefix="/api/mypage", tags=["mypage"])
 
-SALES_REPS = [
-    {"id": "SR001", "name": "鈴木 一郎"},
-    {"id": "SR002", "name": "高橋 健太"},
-    {"id": "SR003", "name": "山本 美咲"},
-    {"id": "SR004", "name": "田村 直樹"},
-]
-
-# デモモード用フォールバックデータ
-_DEMO_STATS = {
-    "鈴木 一郎": {
-        "current_month": {"total": 82, "contracted": 26, "lost": 44, "in_progress": 12, "contract_rate": 31.7, "avg_amount": 2850000},
-        "rate_diff_from_last_month": 2.1,
-        "loss_reasons": [
-            {"loss_reason": "予算超過", "cnt": 17},
-            {"loss_reason": "競合他社で成約", "cnt": 13},
-            {"loss_reason": "タイミングが合わない", "cnt": 8},
-            {"loss_reason": "保留・検討中", "cnt": 4},
-            {"loss_reason": "条件不一致", "cnt": 2},
-        ],
-        "vehicle_breakdown": [
-            {"vehicle_category": "ミニバン", "total": 32, "contracted": 12, "rate": 37.5},
-            {"vehicle_category": "SUV",     "total": 20, "contracted": 6,  "rate": 30.0},
-            {"vehicle_category": "セダン",  "total": 14, "contracted": 4,  "rate": 28.6},
-            {"vehicle_category": "コンパクト", "total": 10, "contracted": 3, "rate": 30.0},
-            {"vehicle_category": "軽自動車", "total": 6,  "contracted": 1,  "rate": 16.7},
-        ],
-    },
-    "高橋 健太": {
-        "current_month": {"total": 75, "contracted": 19, "lost": 44, "in_progress": 12, "contract_rate": 25.3, "avg_amount": 3100000},
-        "rate_diff_from_last_month": -0.8,
-        "loss_reasons": [
-            {"loss_reason": "競合他社で成約", "cnt": 18},
-            {"loss_reason": "予算超過", "cnt": 12},
-            {"loss_reason": "保留・検討中", "cnt": 8},
-            {"loss_reason": "タイミングが合わない", "cnt": 5},
-            {"loss_reason": "条件不一致", "cnt": 1},
-        ],
-        "vehicle_breakdown": [
-            {"vehicle_category": "セダン",  "total": 28, "contracted": 10, "rate": 35.7},
-            {"vehicle_category": "SUV",     "total": 18, "contracted": 4,  "rate": 22.2},
-            {"vehicle_category": "ミニバン", "total": 14, "contracted": 3,  "rate": 21.4},
-            {"vehicle_category": "コンパクト", "total": 10, "contracted": 2, "rate": 20.0},
-            {"vehicle_category": "軽自動車", "total": 5,  "contracted": 0,  "rate": 0.0},
-        ],
-    },
-    "山本 美咲": {
-        "current_month": {"total": 71, "contracted": 20, "lost": 39, "in_progress": 12, "contract_rate": 28.2, "avg_amount": 2420000},
-        "rate_diff_from_last_month": 3.5,
-        "loss_reasons": [
-            {"loss_reason": "保留・検討中", "cnt": 14},
-            {"loss_reason": "予算超過", "cnt": 12},
-            {"loss_reason": "競合他社で成約", "cnt": 8},
-            {"loss_reason": "条件不一致", "cnt": 3},
-            {"loss_reason": "タイミングが合わない", "cnt": 2},
-        ],
-        "vehicle_breakdown": [
-            {"vehicle_category": "SUV",     "total": 30, "contracted": 11, "rate": 36.7},
-            {"vehicle_category": "コンパクト", "total": 15, "contracted": 4, "rate": 26.7},
-            {"vehicle_category": "ミニバン", "total": 12, "contracted": 3,  "rate": 25.0},
-            {"vehicle_category": "軽自動車", "total": 8,  "contracted": 2,  "rate": 25.0},
-            {"vehicle_category": "セダン",  "total": 6,  "contracted": 0,  "rate": 0.0},
-        ],
-    },
-    "田村 直樹": {
-        "current_month": {"total": 68, "contracted": 16, "lost": 39, "in_progress": 13, "contract_rate": 23.5, "avg_amount": 1680000},
-        "rate_diff_from_last_month": -1.2,
-        "loss_reasons": [
-            {"loss_reason": "予算超過", "cnt": 15},
-            {"loss_reason": "タイミングが合わない", "cnt": 11},
-            {"loss_reason": "保留・検討中", "cnt": 8},
-            {"loss_reason": "競合他社で成約", "cnt": 4},
-            {"loss_reason": "条件不一致", "cnt": 1},
-        ],
-        "vehicle_breakdown": [
-            {"vehicle_category": "軽自動車", "total": 26, "contracted": 7,  "rate": 26.9},
-            {"vehicle_category": "コンパクト", "total": 20, "contracted": 5, "rate": 25.0},
-            {"vehicle_category": "ミニバン", "total": 12, "contracted": 3,  "rate": 25.0},
-            {"vehicle_category": "SUV",     "total": 7,  "contracted": 1,  "rate": 14.3},
-            {"vehicle_category": "セダン",  "total": 3,  "contracted": 0,  "rate": 0.0},
-        ],
-    },
-}
-
 # Genie チャットセッション（conversation_id を保持）
 _genie_sessions: dict[str, str] = {}  # session_id -> conversation_id
 
 
 @router.get("/reps")
 async def list_sales_reps():
-    """担当者一覧をDBから返す（ALLオプション付き）。"""
+    """担当者一覧を sv_sales_results から返す（ALLオプション付き）。email を ID として返す。"""
     try:
-        table = get_full_table_name("sv_customers")
+        table = get_full_table_name("sv_sales_results")
         rows = await db.execute_query(
-            f"SELECT DISTINCT sales_rep_name FROM {table} WHERE sales_rep_name IS NOT NULL ORDER BY sales_rep_name"
+            f"""SELECT sales_rep_email, MAX(sales_rep_name) AS sales_rep_name
+                FROM {table}
+                WHERE sales_rep_email IS NOT NULL
+                GROUP BY sales_rep_email
+                ORDER BY sales_rep_name"""
         )
-        reps = [{"id": r["sales_rep_name"], "name": r["sales_rep_name"]} for r in rows]
+        reps = [{"id": r["sales_rep_email"], "name": r["sales_rep_name"]} for r in rows]
     except Exception:
-        reps = SALES_REPS
+        reps = []
     all_option = [{"id": "ALL", "name": "ALL"}]
     return {"success": True, "data": all_option + reps}
 
 
+def _build_filters(sales_rep_email: str) -> tuple[str, str]:
+    """WHERE / AND フィルター句を構築する。"""
+    is_all = sales_rep_email == "ALL"
+    base_where = "WHERE sale_date < CURRENT_DATE()"
+    base_and = "AND sale_date < CURRENT_DATE()"
+    if is_all:
+        return base_where, base_and
+    return (
+        f"{base_where} AND sales_rep_email = '{sales_rep_email}'",
+        f"{base_and} AND sales_rep_email = '{sales_rep_email}'",
+    )
+
+
 async def _generate_loss_actions(
-    sales_rep_name: str,
     loss_reasons: list[dict],
     vehicle_breakdown: list[dict],
     same_period_diff: float | None,
@@ -137,7 +70,7 @@ async def _generate_loss_actions(
         pace_note = f"先月同時点比 {same_period_diff:+.1f}%" if same_period_diff is not None else ""
 
         prompt = f"""あなたは中古車販売の営業コーチです。
-営業担当「{sales_rep_name}」の今月の失注データをもとに、各失注理由に対して考えられる仮説と対策の方向性を1文で示してください。
+担当者の今月の失注データをもとに、各失注理由に対して考えられる仮説と対策の方向性を1文で示してください。
 
 【今月の失注理由】
 {loss_list}
@@ -162,7 +95,6 @@ async def _generate_loss_actions(
             temperature=0.3,
         )
         text = response.strip()
-        # JSON部分を抽出
         start, end = text.find("{"), text.rfind("}") + 1
         if start >= 0 and end > start:
             return json.loads(text[start:end])
@@ -172,18 +104,12 @@ async def _generate_loss_actions(
 
 
 @router.get("/stats")
-async def get_mypage_stats(sales_rep_name: str = Query(...)):
+async def get_mypage_stats(sales_rep_email: str = Query(...)):
     """担当者の今月実績・失注理由・車両カテゴリ別成約率を返す。"""
     full_table = get_full_table_name("sv_sales_results")
-    is_all = sales_rep_name == "ALL"
-    date_filter = "WHERE sale_date < CURRENT_DATE()"
-    date_and = "AND sale_date < CURRENT_DATE()"
-    if is_all:
-        rep_filter = date_filter
-        rep_and = date_and
-    else:
-        rep_filter = f"{date_filter} AND sales_rep_name = '{sales_rep_name}'"
-        rep_and = f"{date_and} AND sales_rep_name = '{sales_rep_name}'"
+    rep_filter, rep_and = _build_filters(sales_rep_email)
+
+    latest_month_sub = f"SELECT date_trunc('month', MAX(sale_date)) FROM {full_table} {rep_filter}"
 
     monthly_q = f"""
         SELECT
@@ -202,6 +128,7 @@ async def get_mypage_stats(sales_rep_name: str = Query(...)):
         SELECT loss_reason, COUNT(*) AS cnt
         FROM {full_table}
         WHERE outcome = '失注' {rep_and}
+          AND date_trunc('month', sale_date) = ({latest_month_sub})
           AND loss_reason IS NOT NULL AND loss_reason != ''
         GROUP BY 1 ORDER BY 2 DESC
     """
@@ -212,12 +139,9 @@ async def get_mypage_stats(sales_rep_name: str = Query(...)):
             SUM(CASE WHEN outcome = '成約' THEN 1 ELSE 0 END) AS contracted,
             ROUND(SUM(CASE WHEN outcome = '成約' THEN 1 ELSE 0 END) * 100.0 / COUNT(*), 1) AS rate
         FROM {full_table}
-        WHERE date_trunc('month', sale_date) = (
-            SELECT date_trunc('month', MAX(sale_date)) FROM {full_table} {rep_filter}
-        ) {rep_and}
+        WHERE date_trunc('month', sale_date) = ({latest_month_sub}) {rep_and}
         GROUP BY 1 ORDER BY rate DESC
     """
-
     daily_q = f"""
         SELECT
             date_trunc('month', sale_date) AS sale_month,
@@ -254,7 +178,6 @@ async def get_mypage_stats(sales_rep_name: str = Query(...)):
     cur_max_day = max(cur_days.keys(), default=0)
     prev_max_day = max(prev_days.keys(), default=0)
 
-    # 日別累積トレンド（今月 vs 先月）
     all_max = max(cur_max_day, prev_max_day)
     daily_trend = []
     cur_cum = prev_cum = 0
@@ -268,12 +191,10 @@ async def get_mypage_stats(sales_rep_name: str = Query(...)):
             point["last_month"] = prev_cum
         daily_trend.append(point)
 
-    # 先月同時点比（今月の最終日時点まで）
     cur_to_date = sum(cur_days.get(d, 0) for d in range(1, cur_max_day + 1))
     prev_to_same = sum(prev_days.get(d, 0) for d in range(1, cur_max_day + 1))
     same_period_diff = round((cur_to_date - prev_to_same) / prev_to_same * 100, 1) if prev_to_same > 0 else None
 
-    # 月末着地予測
     projected_total = None
     if cur_m and cur_max_day > 0:
         year, month = int(cur_m[:4]), int(cur_m[5:7])
@@ -281,7 +202,6 @@ async def get_mypage_stats(sales_rep_name: str = Query(...)):
         projected_total = round(cur_to_date / cur_max_day * days_in_month)
     last_month_total = sum(prev_days.values()) if prev_days else None
 
-    # DBから取れた場合
     if monthly:
         current = monthly[0]
         previous = monthly[1] if len(monthly) > 1 else {}
@@ -303,11 +223,6 @@ async def get_mypage_stats(sales_rep_name: str = Query(...)):
             },
         }
 
-    # デモモードフォールバック
-    demo = _DEMO_STATS.get(sales_rep_name)
-    if demo:
-        return {"success": True, "data": demo}
-
     return {"success": True, "data": {
         "current_month": {},
         "rate_diff_from_last_month": None,
@@ -317,23 +232,17 @@ async def get_mypage_stats(sales_rep_name: str = Query(...)):
 
 
 @router.get("/loss-actions")
-async def get_loss_actions(sales_rep_name: str = Query(...)):
+async def get_loss_actions(sales_rep_email: str = Query(...)):
     """失注理由ごとのAI改善アクションを非同期で返す。"""
     full_table = get_full_table_name("sv_sales_results")
-    is_all = sales_rep_name == "ALL"
-    date_filter = "WHERE sale_date < CURRENT_DATE()"
-    date_and = "AND sale_date < CURRENT_DATE()"
-    if is_all:
-        rep_filter = date_filter
-        rep_and = date_and
-    else:
-        rep_filter = f"{date_filter} AND sales_rep_name = '{sales_rep_name}'"
-        rep_and = f"{date_and} AND sales_rep_name = '{sales_rep_name}'"
+    rep_filter, rep_and = _build_filters(sales_rep_email)
+    latest_month_sub = f"SELECT date_trunc('month', MAX(sale_date)) FROM {full_table} {rep_filter}"
 
     loss_q = f"""
         SELECT loss_reason, COUNT(*) AS cnt
         FROM {full_table}
         WHERE outcome = '失注' {rep_and}
+          AND date_trunc('month', sale_date) = ({latest_month_sub})
           AND loss_reason IS NOT NULL AND loss_reason != ''
         GROUP BY 1 ORDER BY 2 DESC
     """
@@ -344,9 +253,7 @@ async def get_loss_actions(sales_rep_name: str = Query(...)):
             SUM(CASE WHEN outcome = '成約' THEN 1 ELSE 0 END) AS contracted,
             ROUND(SUM(CASE WHEN outcome = '成約' THEN 1 ELSE 0 END) * 100.0 / COUNT(*), 1) AS rate
         FROM {full_table}
-        WHERE date_trunc('month', sale_date) = (
-            SELECT date_trunc('month', MAX(sale_date)) FROM {full_table} {rep_filter}
-        ) {rep_and}
+        WHERE date_trunc('month', sale_date) = ({latest_month_sub}) {rep_and}
         GROUP BY 1 ORDER BY rate DESC
     """
     try:
@@ -355,7 +262,6 @@ async def get_loss_actions(sales_rep_name: str = Query(...)):
             db.execute_query(vehicle_q),
         )
         actions = await _generate_loss_actions(
-            sales_rep_name=sales_rep_name,
             loss_reasons=loss_reasons,
             vehicle_breakdown=vehicle_breakdown,
             same_period_diff=None,
@@ -368,7 +274,7 @@ async def get_loss_actions(sales_rep_name: str = Query(...)):
 
 class MypageChatRequest(BaseModel):
     session_id: str
-    sales_rep_name: str
+    sales_rep_email: str
     message: str
 
 
@@ -380,7 +286,6 @@ async def _genie_start_or_continue(
 
     conv_id = _genie_sessions.get(session_id)
     if conv_id:
-        # 既存会話を継続
         url = f"{host}/api/2.0/genie/spaces/{space_id}/conversations/{conv_id}/messages"
         async with httpx.AsyncClient(timeout=30.0) as client:
             resp = await client.post(url, json={"content": message}, headers=headers)
@@ -388,7 +293,6 @@ async def _genie_start_or_continue(
             data = resp.json()
         return conv_id, data["id"]
     else:
-        # 新規会話
         url = f"{host}/api/2.0/genie/spaces/{space_id}/start-conversation"
         async with httpx.AsyncClient(timeout=30.0) as client:
             resp = await client.post(url, json={"content": message}, headers=headers)
@@ -402,12 +306,7 @@ async def _genie_start_or_continue(
 async def _genie_poll(
     host: str, token: str, space_id: str, conv_id: str, msg_id: str, timeout: int = 180
 ) -> list[dict]:
-    """Genie のメッセージが COMPLETED になるまでポーリングし、結果アイテムのリストを返す。
-
-    各アイテム:
-      {"type": "text", "content": "..."}
-      {"type": "table", "columns": [...], "rows": [[...], ...]}
-    """
+    """Genie のメッセージが COMPLETED になるまでポーリングし、結果アイテムのリストを返す。"""
     headers = {"Authorization": f"Bearer {token}"}
     url = f"{host}/api/2.0/genie/spaces/{space_id}/conversations/{conv_id}/messages/{msg_id}"
     loop = asyncio.get_running_loop()
@@ -429,7 +328,6 @@ async def _genie_poll(
                         q = att["query"]
                         if q.get("description"):
                             items.append({"type": "text", "content": q["description"]})
-                        # テーブルデータを取得
                         att_id = att.get("attachment_id", "")
                         if att_id:
                             result_url = (
@@ -476,14 +374,12 @@ async def debug_genie():
     }
     if host and token and space_id:
         try:
-            # フルフローをテスト
             import uuid as _uuid
             session_id = str(_uuid.uuid4())
             conv_id, msg_id = await _genie_start_or_continue(host, token, space_id, session_id, "鈴木一郎の成約率は？")
             result["start_ok"] = True
             result["conv_id"] = conv_id
             result["msg_id"] = msg_id
-            # ポーリングテスト（短いタイムアウト）
             items = await _genie_poll(host, token, space_id, conv_id, msg_id, timeout=60)
             result["poll_ok"] = True
             result["items_count"] = len(items)
@@ -508,19 +404,20 @@ async def mypage_chat_stream(request: MypageChatRequest):
             yield f"data: {json.dumps({'type': 'progress', 'message': 'データを分析中...'})}\n\n"
 
             if not host or not token or not space_id:
-                # デモモード
                 await asyncio.sleep(0.5)
-                demo_answer = _demo_answer(request.sales_rep_name, request.message)
-                chunk_size = 30
-                for i in range(0, len(demo_answer), chunk_size):
-                    yield f"data: {json.dumps({'type': 'content', 'content': demo_answer[i:i+chunk_size]})}\n\n"
-                    await asyncio.sleep(0.02)
+                demo_answer = "Genie への接続情報が設定されていません。管理者にお問い合わせください。"
+                yield f"data: {json.dumps({'type': 'content', 'content': demo_answer})}\n\n"
                 yield "data: [DONE]\n\n"
                 return
 
-            contextualized_message = (
-                f"私の担当者名は「{request.sales_rep_name}」です。{request.message}"
-            )
+            if request.sales_rep_email and request.sales_rep_email != "ALL":
+                contextualized_message = (
+                    f"sales_rep_emailが「{request.sales_rep_email}」のデータに絞って回答してください。\n"
+                    f"{request.message}"
+                )
+            else:
+                contextualized_message = request.message
+
             conv_id, msg_id = await _genie_start_or_continue(
                 host, token, space_id, request.session_id, contextualized_message
             )
@@ -553,33 +450,3 @@ async def mypage_chat_stream(request: MypageChatRequest):
             "X-Accel-Buffering": "no",
         },
     )
-
-
-def _demo_answer(sales_rep_name: str, message: str) -> str:
-    """デモモード用のダミー回答。"""
-    msg_lower = message.lower()
-    name = sales_rep_name.split()[-1]  # 苗字だけ
-    if "失注" in message or "なぜ" in message or "原因" in message:
-        return (
-            f"**{name}さんの今月の失注分析**\n\n"
-            "最も多い失注理由は **予算超過（35%）** です。\n\n"
-            "特にミニバン・SUVカテゴリで「提案金額が予算を超えた」という理由が多く見られます。\n\n"
-            "**改善アクション:**\n"
-            "- 商談の序盤で予算上限を確認し、その範囲内の選択肢を先に提示する\n"
-            "- 月々の支払額（ローン試算）を早めに見せると予算感のズレを防ぎやすい"
-        )
-    if "成約率" in message or "成績" in message or "実績" in message:
-        demo = _DEMO_STATS.get(sales_rep_name, {})
-        rate = demo.get("current_month", {}).get("contract_rate", "—")
-        diff = demo.get("rate_diff_from_last_month")
-        trend = f"先月比 **+{diff}%** と上昇傾向" if diff and diff > 0 else f"先月比 **{diff}%**"
-        return (
-            f"**{name}さんの今月の成約率は {rate}%** です。{trend}です。\n\n"
-            "得意なカテゴリでの成約が安定しています。引き続き得意層を中心に商談を進めましょう。"
-        )
-    return (
-        f"{name}さんの実績データを確認しました。\n\n"
-        "今月の接客では得意カテゴリを中心に成果が出ています。"
-        "具体的な失注理由や車種別の傾向を知りたい場合は、さらに詳しく質問してください。"
-    )
-

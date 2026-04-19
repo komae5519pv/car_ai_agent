@@ -60,27 +60,27 @@ async function fetchReps(): Promise<SalesRep[]> {
   return d.data as SalesRep[]
 }
 
-async function fetchStats(salesRepName: string): Promise<MypageStats> {
-  const r = await fetch(`${API_BASE}/stats?sales_rep_name=${encodeURIComponent(salesRepName)}`)
+async function fetchStats(salesRepEmail: string): Promise<MypageStats> {
+  const r = await fetch(`${API_BASE}/stats?sales_rep_email=${encodeURIComponent(salesRepEmail)}`)
   const d = await r.json()
   return d.data as MypageStats
 }
 
-async function fetchLossActions(salesRepName: string): Promise<Record<string, string>> {
-  const r = await fetch(`${API_BASE}/loss-actions?sales_rep_name=${encodeURIComponent(salesRepName)}`)
+async function fetchLossActions(salesRepEmail: string): Promise<Record<string, string>> {
+  const r = await fetch(`${API_BASE}/loss-actions?sales_rep_email=${encodeURIComponent(salesRepEmail)}`)
   const d = await r.json()
   return d.data as Record<string, string>
 }
 
 async function* streamChat(
   sessionId: string,
-  salesRepName: string,
+  salesRepEmail: string,
   message: string,
 ): AsyncGenerator<{ type: string; content?: string; message?: string; error?: string; columns?: string[]; rows?: string[][] }> {
   const r = await fetch(`${API_BASE}/chat/stream`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ session_id: sessionId, sales_rep_name: salesRepName, message }),
+    body: JSON.stringify({ session_id: sessionId, sales_rep_email: salesRepEmail, message }),
   })
   const reader = r.body?.getReader()
   if (!reader) return
@@ -613,13 +613,13 @@ export function MyPage() {
   useEffect(() => {
     fetchReps().then((r) => {
       setReps(r)
-      // デフォルトはログインユーザーの担当者名、なければ先頭
-      const defaultRep = currentUser.sales_rep_name && r.find((rep) => rep.name === currentUser.sales_rep_name)
-        ? currentUser.sales_rep_name
-        : r.length > 0 ? r[0].name : ''
+      // デフォルトはログインユーザーのemail、なければ先頭
+      const defaultRep = currentUser.email && r.find((rep) => rep.id === currentUser.email)
+        ? currentUser.email
+        : r.length > 0 ? r[0].id : ''
       setSelectedRep(defaultRep)
     })
-  }, [currentUser.sales_rep_name])
+  }, [currentUser.email])
 
   useEffect(() => {
     if (!selectedRep) return
@@ -737,7 +737,7 @@ export function MyPage() {
             className="text-sm border border-gray-200 rounded-lg px-3 py-1.5 text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             {reps.map((r) => (
-              <option key={r.id} value={r.name}>{r.name}</option>
+              <option key={r.id} value={r.id}>{r.name}</option>
             ))}
           </select>
         </div>
@@ -779,161 +779,161 @@ export function MyPage() {
           />
         ) : null}
 
-        {/* Analysis panels */}
-        <div className="grid grid-cols-2 gap-6">
-          <div className="bg-white rounded-xl border border-gray-200 p-5">
-            <h3 className="text-sm font-semibold text-gray-700 mb-4">失注理由の内訳</h3>
-            {loadingStats ? (
-              <div className="space-y-2">
-                {[...Array(4)].map((_, i) => <div key={i} className="h-6 bg-gray-100 rounded animate-pulse" />)}
-              </div>
-            ) : (
-              <LossReasonBar reasons={stats?.loss_reasons ?? []} actions={lossActions} loadingActions={loadingActions} />
-            )}
-          </div>
-
-          <div className="bg-white rounded-xl border border-gray-200 p-5">
-            <h3 className="text-sm font-semibold text-gray-700 mb-4">車両カテゴリ別 成約率</h3>
-            {loadingStats ? (
-              <div className="space-y-2">
-                {[...Array(4)].map((_, i) => <div key={i} className="h-6 bg-gray-100 rounded animate-pulse" />)}
-              </div>
-            ) : (
-              <VehicleTable breakdown={stats?.vehicle_breakdown ?? []} />
-            )}
-          </div>
-        </div>
-
-        {/* Chat */}
-        <div className="bg-white rounded-xl border border-gray-200 flex flex-col">
-          {/* Chat header */}
-          <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <HiOutlineSparkles className="w-4 h-4 text-blue-600" />
-              <h3 className="text-sm font-semibold text-gray-700">AIに聞く</h3>
-              {activeConv && activeConv.title !== '新しい会話' && (
-                <span className="text-xs text-gray-400 truncate max-w-[200px]">{activeConv.title}</span>
+        {/* Analysis + Chat: 左に分析パネル縦積み、右にAIチャット */}
+        <div className="grid grid-cols-5 gap-6">
+          {/* 左カラム: 失注理由 + 車両カテゴリ */}
+          <div className="col-span-2 space-y-6">
+            <div className="bg-white rounded-xl border border-gray-200 p-5">
+              <h3 className="text-sm font-semibold text-gray-700 mb-4">失注理由の内訳</h3>
+              {loadingStats ? (
+                <div className="space-y-2">
+                  {[...Array(4)].map((_, i) => <div key={i} className="h-6 bg-gray-100 rounded animate-pulse" />)}
+                </div>
+              ) : (
+                <LossReasonBar reasons={stats?.loss_reasons ?? []} actions={lossActions} loadingActions={loadingActions} />
               )}
             </div>
-            <div className="flex items-center gap-1">
-              {/* 履歴ボタン */}
-              <div className="relative">
-                <button
-                  onClick={() => setShowHistory((v) => !v)}
-                  className={`flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-lg border transition-colors ${
-                    showHistory ? 'bg-gray-100 border-gray-300 text-gray-700' : 'border-gray-200 text-gray-500 hover:bg-gray-50'
-                  }`}
-                >
-                  <FiClock className="w-3.5 h-3.5" />
-                  履歴 {conversations.length > 1 && `(${conversations.length})`}
-                </button>
-                {showHistory && (
-                  <div className="absolute right-0 top-8 w-64 bg-white border border-gray-200 rounded-xl shadow-lg z-10 overflow-hidden">
-                    <div className="px-3 py-2 border-b border-gray-100">
-                      <p className="text-xs font-semibold text-gray-500">会話履歴</p>
-                    </div>
-                    <div className="max-h-48 overflow-y-auto">
-                      {conversations.map((c) => (
-                        <button
-                          key={c.id}
-                          onClick={() => { setActiveConvId(c.id); setShowHistory(false) }}
-                          className={`w-full text-left px-3 py-2.5 text-xs hover:bg-gray-50 flex items-center gap-2 ${
-                            c.id === activeConvId ? 'bg-blue-50 text-blue-700' : 'text-gray-700'
-                          }`}
-                        >
-                          <HiOutlineSparkles className="w-3 h-3 flex-shrink-0 text-blue-400" />
-                          <span className="truncate">{c.title}</span>
-                          <span className="ml-auto text-gray-400">{c.messages.filter((m) => m.role === 'user').length}問</span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-              {/* 新規作成ボタン */}
-              <button
-                onClick={newConversation}
-                className="flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors"
-              >
-                <FiPlus className="w-3.5 h-3.5" />
-                新しい会話
-              </button>
+
+            <div className="bg-white rounded-xl border border-gray-200 p-5">
+              <h3 className="text-sm font-semibold text-gray-700 mb-4">車両カテゴリ別 成約率</h3>
+              {loadingStats ? (
+                <div className="space-y-2">
+                  {[...Array(4)].map((_, i) => <div key={i} className="h-6 bg-gray-100 rounded animate-pulse" />)}
+                </div>
+              ) : (
+                <VehicleTable breakdown={stats?.vehicle_breakdown ?? []} />
+              )}
             </div>
           </div>
 
-          {/* Preset questions */}
-          {messages.length === 0 && (
-            <div className="px-5 pt-4 flex flex-wrap gap-2">
-              {PRESET_QUESTIONS.map((q) => (
-                <button
-                  key={q}
-                  onClick={() => sendMessage(q)}
-                  disabled={sending}
-                  className="text-xs px-3 py-1.5 rounded-full border border-blue-200 text-blue-700 bg-blue-50 hover:bg-blue-100 transition-colors disabled:opacity-50"
-                >
-                  {q}
-                </button>
-              ))}
-            </div>
-          )}
-
-          {/* Messages */}
-          <div className="overflow-y-auto px-5 py-4 space-y-4" style={{ maxHeight: 'calc(100vh - 420px)' }}>
-            {messages.map((msg, i) => (
-              <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                {msg.role === 'assistant' && (
-                  <div className="w-7 h-7 rounded-full bg-blue-600 flex items-center justify-center mr-2 flex-shrink-0 mt-0.5">
-                    <HiOutlineSparkles className="w-3.5 h-3.5 text-white" />
-                  </div>
+          {/* 右カラム: AIに聞く */}
+          <div className="col-span-3 bg-white rounded-xl border border-blue-200 shadow-sm flex flex-col" style={{ minHeight: 480 }}>
+            {/* Chat header */}
+            <div className="px-5 py-3 border-b border-blue-100 bg-blue-50/40 rounded-t-xl flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <HiOutlineSparkles className="w-4 h-4 text-blue-600" />
+                <h3 className="text-sm font-semibold text-blue-800">AIに聞く</h3>
+                {activeConv && activeConv.title !== '新しい会話' && (
+                  <span className="text-xs text-blue-400 truncate max-w-[200px]">{activeConv.title}</span>
                 )}
-                <div className={`max-w-[85%] ${msg.role === 'user' ? '' : 'w-full'}`}>
-                  <div
-                    className={`rounded-xl px-4 py-3 text-sm ${
-                      msg.role === 'user'
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-gray-50 border border-gray-200 text-gray-800'
+              </div>
+              <div className="flex items-center gap-1">
+                <div className="relative">
+                  <button
+                    onClick={() => setShowHistory((v) => !v)}
+                    className={`flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-lg border transition-colors ${
+                      showHistory ? 'bg-gray-100 border-gray-300 text-gray-700' : 'border-gray-200 text-gray-500 hover:bg-gray-50'
                     }`}
                   >
-                    {msg.role === 'assistant' ? (
-                      msg.content ? <MarkdownContent content={msg.content} /> : (
-                        <span className="flex items-center gap-1.5 text-gray-400">
-                          <FiLoader className="w-3.5 h-3.5 animate-spin text-blue-500" />
-                          データを分析中...
-                        </span>
-                      )
-                    ) : msg.content}
-                  </div>
-                  {/* テーブル・グラフ */}
-                  {msg.tables.map((table, ti) => (
-                    <ChatQueryResult key={ti} table={table} />
-                  ))}
+                    <FiClock className="w-3.5 h-3.5" />
+                    履歴 {conversations.length > 1 && `(${conversations.length})`}
+                  </button>
+                  {showHistory && (
+                    <div className="absolute right-0 top-8 w-64 bg-white border border-gray-200 rounded-xl shadow-lg z-10 overflow-hidden">
+                      <div className="px-3 py-2 border-b border-gray-100">
+                        <p className="text-xs font-semibold text-gray-500">会話履歴</p>
+                      </div>
+                      <div className="max-h-48 overflow-y-auto">
+                        {conversations.map((c) => (
+                          <button
+                            key={c.id}
+                            onClick={() => { setActiveConvId(c.id); setShowHistory(false) }}
+                            className={`w-full text-left px-3 py-2.5 text-xs hover:bg-gray-50 flex items-center gap-2 ${
+                              c.id === activeConvId ? 'bg-blue-50 text-blue-700' : 'text-gray-700'
+                            }`}
+                          >
+                            <HiOutlineSparkles className="w-3 h-3 flex-shrink-0 text-blue-400" />
+                            <span className="truncate">{c.title}</span>
+                            <span className="ml-auto text-gray-400">{c.messages.filter((m) => m.role === 'user').length}問</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
+                <button
+                  onClick={newConversation}
+                  className="flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors"
+                >
+                  <FiPlus className="w-3.5 h-3.5" />
+                  新しい会話
+                </button>
               </div>
-            ))}
-            <div ref={chatEndRef} />
-          </div>
+            </div>
 
-          {/* Input */}
-          <div className="px-5 py-4 border-t border-gray-100">
-            <form
-              onSubmit={(e) => { e.preventDefault(); sendMessage(input) }}
-              className="flex gap-2"
-            >
-              <input
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                placeholder="自分の実績について聞いてみる..."
-                disabled={sending}
-                className="flex-1 text-sm border border-gray-200 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50"
-              />
-              <button
-                type="submit"
-                disabled={!input.trim() || sending}
-                className="px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            {/* Preset questions */}
+            {messages.length === 0 && (
+              <div className="px-5 pt-4 flex flex-wrap gap-2">
+                {PRESET_QUESTIONS.map((q) => (
+                  <button
+                    key={q}
+                    onClick={() => sendMessage(q)}
+                    disabled={sending}
+                    className="text-xs px-3 py-1.5 rounded-full border border-blue-200 text-blue-700 bg-blue-50 hover:bg-blue-100 transition-colors disabled:opacity-50"
+                  >
+                    {q}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Messages */}
+            <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
+              {messages.map((msg, i) => (
+                <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                  {msg.role === 'assistant' && (
+                    <div className="w-7 h-7 rounded-full bg-blue-600 flex items-center justify-center mr-2 flex-shrink-0 mt-0.5">
+                      <HiOutlineSparkles className="w-3.5 h-3.5 text-white" />
+                    </div>
+                  )}
+                  <div className={`max-w-[85%] ${msg.role === 'user' ? '' : 'w-full'}`}>
+                    <div
+                      className={`rounded-xl px-4 py-3 text-sm ${
+                        msg.role === 'user'
+                          ? 'bg-blue-600 text-white'
+                          : 'bg-gray-50 border border-gray-200 text-gray-800'
+                      }`}
+                    >
+                      {msg.role === 'assistant' ? (
+                        msg.content ? <MarkdownContent content={msg.content} /> : (
+                          <span className="flex items-center gap-1.5 text-gray-400">
+                            <FiLoader className="w-3.5 h-3.5 animate-spin text-blue-500" />
+                            データを分析中...
+                          </span>
+                        )
+                      ) : msg.content}
+                    </div>
+                    {msg.tables.map((table, ti) => (
+                      <ChatQueryResult key={ti} table={table} />
+                    ))}
+                  </div>
+                </div>
+              ))}
+              <div ref={chatEndRef} />
+            </div>
+
+            {/* Input */}
+            <div className="px-5 py-4 border-t border-gray-100">
+              <form
+                onSubmit={(e) => { e.preventDefault(); sendMessage(input) }}
+                className="flex gap-2"
               >
-                <FiSend className="w-4 h-4" />
-              </button>
-            </form>
+                <input
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  placeholder="自分の実績について聞いてみる..."
+                  disabled={sending}
+                  className="flex-1 text-sm border border-gray-200 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50"
+                />
+                <button
+                  type="submit"
+                  disabled={!input.trim() || sending}
+                  className="px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  <FiSend className="w-4 h-4" />
+                </button>
+              </form>
+            </div>
           </div>
         </div>
       </div>
